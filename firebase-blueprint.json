@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "name": { "type": "string" },
+        "dob": { "type": "string", "format": "date" },
+        "gender": { "type": "string", "enum": ["ذكر", "أنثى"] },
+        "phone": { "type": "string" },
+        "registrationDate": { "type": "string", "format": "date" }
+      },
+      "required": ["userId", "name", "dob", "gender", "phone", "registrationDate"]
+    },
+    "TestOrder": {
+      "title": "Test Order",
+      "description": "A laboratory test order for a patient",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "testName": { "type": "string" },
+        "normalRange": { "type": "string" },
+        "orderDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["قيد الانتظار", "تم سحب العينة", "مكتمل", "معتمدة", "تم تسليم النتيجة", "ملغي"] },
+        "result": { "type": "string" },
+        "totalPrice": { "type": "number" },
+        "discount": { "type": "number" },
+        "discountPercentage": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["غير مدفوع", "مدفوع جزئياً", "مدفوع بالكامل"] },
+        "isAutoApproved": { "type": "boolean" },
+        "referringDoctor": { "type": "string" }
+      },
+      "required": ["userId", "patientId", "patientName", "testName", "orderDate", "status", "totalPrice", "discount", "paidAmount", "paymentStatus"]
+    },
+    "TestCategory": {
+      "title": "Test Category",
+      "description": "Categories of tests available in the lab",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "category": { "type": "string" },
+        "groups": { "type": "array" }
+      },
+      "required": ["userId", "category", "groups"]
+    },
+    "LabSettings": {
+      "title": "Lab Settings",
+      "description": "Settings for the laboratory",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "labName": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "labDirector": { "type": "string" },
+        "accountantName": { "type": "string" },
+        "qcDoctor": { "type": "string" },
+        "technician": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "headerColor": { "type": "string" },
+        "logoSize": { "type": "number" },
+        "fontFamily": { "type": "string" },
+        "labNameFontSize": { "type": "number" },
+        "patientNameFontSize": { "type": "number" },
+        "resultsFontSize": { "type": "number" },
+        "showPreviousResults": { "type": "boolean" },
+        "unitPrice": { "type": "number" }
+      },
+      "required": ["userId", "labName", "address", "phone", "labDirector", "accountantName", "qcDoctor", "technician", "headerColor", "logoSize", "fontFamily", "labNameFontSize", "patientNameFontSize", "resultsFontSize", "showPreviousResults", "unitPrice"]
+    },
+    "HL7Settings": {
+      "title": "HL7 Settings",
+      "description": "HL7 integration settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "enabled": { "type": "boolean" },
+        "ipAddress": { "type": "string" },
+        "port": { "type": "number" }
+      },
+      "required": ["userId", "enabled", "ipAddress", "port"]
+    },
+    "FavoriteGroup": {
+      "title": "Favorite Group",
+      "description": "Groups of favorite tests",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "name": { "type": "string" },
+        "testNames": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["userId", "name", "testNames"]
+    },
+    "Reagent": {
+      "title": "Reagent",
+      "description": "Lab reagent/chemical stock item",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner ID" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "minQuantity": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date" },
+        "supplier": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["userId", "name", "quantity", "unit", "minQuantity", "expiryDate", "supplier", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "patients/{patientId}": {
+      "schema": { "$ref": "#/entities/Patient" },
+      "description": "Stores patient records"
+    },
+    "orders/{orderId}": {
+      "schema": { "$ref": "#/entities/TestOrder" },
+      "description": "Stores test orders"
+    },
+    "testCategories/{categoryId}": {
+      "schema": { "$ref": "#/entities/TestCategory" },
+      "description": "Stores test categories"
+    },
+    "labSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/LabSettings" },
+      "description": "Stores lab settings (document ID is userId)"
+    },
+    "hl7Settings/{settingId}": {
+      "schema": { "$ref": "#/entities/HL7Settings" },
+      "description": "Stores HL7 settings (document ID is userId)"
+    },
+    "favoriteGroups/{groupId}": {
+      "schema": { "$ref": "#/entities/FavoriteGroup" },
+      "description": "Stores favorite test groups"
+    },
+    "reagents/{reagentId}": {
+      "schema": { "$ref": "#/entities/Reagent" },
+      "description": "Stores reagent stock information"
+    }
+  }
+}

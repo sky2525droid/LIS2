@@ -1,0 +1,194 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+    
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+    
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+             request.resource.data[field] == null ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    function isValidDateString(dateStr) {
+      // Basic YYYY-MM-DD validation
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidPatient(data) {
+      return hasRequiredFields(['userId', 'name', 'dob', 'gender', 'phone', 'registrationDate']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isValidDateString(data.dob) &&
+             data.gender in ['ذكر', 'أنثى'] &&
+             data.phone is string && data.phone.size() <= 20 &&
+             isValidDateString(data.registrationDate);
+    }
+
+    function isValidTestOrder(data) {
+      return hasRequiredFields(['userId', 'patientId', 'patientName', 'testName', 'orderDate', 'status', 'totalPrice', 'discount', 'paidAmount', 'paymentStatus']) &&
+             data.userId == request.auth.uid &&
+             data.patientId is number && data.patientId > 0 &&
+             data.patientName is string && data.patientName.size() > 0 && data.patientName.size() <= 100 &&
+             data.testName is string && data.testName.size() > 0 && data.testName.size() <= 100 &&
+             data.orderDate is string && data.orderDate.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             data.status in ['قيد الانتظار', 'تم سحب العينة', 'مكتمل', 'معتمدة', 'تم تسليم النتيجة', 'ملغي'] &&
+             data.totalPrice is number && data.totalPrice >= 0 &&
+             data.discount is number && data.discount >= 0 &&
+             data.paidAmount is number && data.paidAmount >= 0 &&
+             data.paymentStatus in ['غير مدفوع', 'مدفوع جزئياً', 'مدفوع بالكامل'] &&
+             isValidOptionalString('normalRange', 0, 200) &&
+             isValidOptionalString('result', 0, 500) &&
+             isValidOptionalString('referringDoctor', 0, 100) &&
+             (!( 'isAutoApproved' in data ) || data.isAutoApproved is bool) &&
+             (!( 'discountPercentage' in data ) || data.discountPercentage is number);
+    }
+
+    function isValidTestCategory(data) {
+      return hasRequiredFields(['userId', 'category', 'groups']) &&
+             data.userId == request.auth.uid &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
+             data.groups is list;
+    }
+
+    function isValidLabSettings(data) {
+      return hasRequiredFields(['userId', 'labName', 'address', 'phone', 'labDirector', 'accountantName', 'qcDoctor', 'technician', 'headerColor', 'logoSize', 'fontFamily', 'labNameFontSize', 'patientNameFontSize', 'resultsFontSize', 'showPreviousResults', 'unitPrice']) &&
+             data.userId == request.auth.uid &&
+             data.labName is string && data.labName.size() > 0 && data.labName.size() <= 100 &&
+             data.address is string && data.address.size() <= 200 &&
+             data.phone is string && data.phone.size() <= 50 &&
+             data.labDirector is string && data.labDirector.size() <= 100 &&
+             data.accountantName is string && data.accountantName.size() <= 100 &&
+             data.qcDoctor is string && data.qcDoctor.size() <= 100 &&
+             data.technician is string && data.technician.size() <= 100 &&
+             data.headerColor is string && data.headerColor.size() <= 20 &&
+             data.logoSize is number && data.logoSize > 0 &&
+             data.fontFamily is string && data.fontFamily.size() <= 100 &&
+             data.labNameFontSize is number && data.labNameFontSize > 0 &&
+             data.patientNameFontSize is number && data.patientNameFontSize > 0 &&
+             data.resultsFontSize is number && data.resultsFontSize > 0 &&
+             data.showPreviousResults is bool &&
+             data.unitPrice is number && data.unitPrice >= 0 &&
+             isValidOptionalString('logoUrl', 0, 1000);
+    }
+
+    function isValidHL7Settings(data) {
+      return hasRequiredFields(['userId', 'enabled', 'ipAddress', 'port']) &&
+             data.userId == request.auth.uid &&
+             data.enabled is bool &&
+             data.ipAddress is string && data.ipAddress.size() <= 50 &&
+             data.port is number && data.port > 0;
+    }
+
+    function isValidFavoriteGroup(data) {
+      return hasRequiredFields(['userId', 'name', 'testNames']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.testNames is list;
+    }
+
+    function isValidReagent(data) {
+      return hasRequiredFields(['userId', 'name', 'quantity', 'unit', 'minQuantity', 'expiryDate', 'supplier', 'lastUpdated']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.quantity is number &&
+             data.unit is string && data.unit.size() > 0 && data.unit.size() <= 20 &&
+             data.minQuantity is number &&
+             isValidDateString(data.expiryDate) &&
+             data.supplier is string && data.supplier.size() <= 100 &&
+             data.lastUpdated is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /patients/{patientId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidPatient(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidPatient(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTestOrder(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidTestOrder(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /testCategories/{categoryId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTestCategory(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidTestCategory(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /labSettings/{settingId} {
+      allow read: if isAuthenticated() && request.auth.uid == settingId;
+      allow create: if isAuthenticated() && isValidLabSettings(request.resource.data) && settingId == request.auth.uid && uidUnchanged();
+      allow update: if isAuthenticated() && request.auth.uid == settingId && isValidLabSettings(request.resource.data) && uidNotModified();
+      allow delete: if isAuthenticated() && request.auth.uid == settingId;
+    }
+
+    match /hl7Settings/{settingId} {
+      allow read: if isAuthenticated() && request.auth.uid == settingId;
+      allow create: if isAuthenticated() && isValidHL7Settings(request.resource.data) && settingId == request.auth.uid && uidUnchanged();
+      allow update: if isAuthenticated() && request.auth.uid == settingId && isValidHL7Settings(request.resource.data) && uidNotModified();
+      allow delete: if isAuthenticated() && request.auth.uid == settingId;
+    }
+
+    match /favoriteGroups/{groupId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidFavoriteGroup(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidFavoriteGroup(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /reagents/{reagentId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidReagent(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidReagent(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+  }
+}
